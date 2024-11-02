@@ -3,7 +3,7 @@ from tkinter import ttk
 from Game import *
 
 class Interface:
-    def __init__(self, game: Game):
+    def __init__(self, game: Game, initial_generation: int = 1, initial_winrate: float = 0.0):
         self.game = game
         self.root = tk.Tk()
         self.root.title("Minesweeper AI")
@@ -11,10 +11,10 @@ class Interface:
         self.info_frame = ttk.Frame(self.root)
         self.info_frame.grid(row=0, column=0, columnspan=game.cols, pady=5)
         
-        self.generation_label = ttk.Label(self.info_frame, text="Generation: 1")
+        self.generation_label = ttk.Label(self.info_frame, text=f"Generation: {initial_generation}")
         self.generation_label.pack(side=tk.LEFT, padx=5)
         
-        self.winrate_label = ttk.Label(self.info_frame, text="Win Rate: 0%")
+        self.winrate_label = ttk.Label(self.info_frame, text=f"Win Rate: {initial_winrate:.1f}%")
         self.winrate_label.pack(side=tk.LEFT, padx=5)
         
         self.grid_frame = ttk.Frame(self.root)

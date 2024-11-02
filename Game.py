@@ -70,5 +70,4 @@ class Game:
         if np.sum(~self.revealed) == self.num_mines:
             self.won = True
             self.game_over = True
-        
         return True

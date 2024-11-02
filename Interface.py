@@ -51,6 +51,7 @@ class Interface:
                 btn.grid(row=i, column=j, padx=1, pady=1)
                 row.append(btn)
             self.buttons.append(row)
+        
         self.update_display()
     
     def update_generation(self, generation: int):

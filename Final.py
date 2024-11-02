@@ -45,8 +45,8 @@ def train_generation(model: nn.Module, games_data: List[Dict], rows: int, cols: 
     for epoch in range(3):
         for batch_states, batch_reveal_labels, batch_flag_labels in dataloader:
             optimizer.zero_grad()
-            reveal_pred, flag_pred = model(batch_states)
             
+            reveal_pred, flag_pred = model(batch_states)
             reveal_loss = criterion(reveal_pred, batch_reveal_labels)
             flag_loss = criterion(flag_pred, batch_flag_labels)
             
@@ -57,15 +57,16 @@ def train_generation(model: nn.Module, games_data: List[Dict], rows: int, cols: 
 
 def load_latest_model(input_size: int, save_dir: str = "checkpoints") -> Tuple[nn.Module, int, Dict]:
     if not os.path.exists(save_dir):
-        return Network(input_size), 0, {"total_games": 0, "total_wins": 0}
+        return MinesweeperNet(input_size), 0, {"total_games": 0, "total_wins": 0}
     
     try:
         with open(os.path.join(save_dir, "latest_generation.txt"), 'r') as f:
             generation = int(f.read().strip())
         
-        model = Network(input_size)
+        model = MinesweeperNet(input_size)
         model_path = os.path.join(save_dir, f"model_gen_{generation}.pt")
-        model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')), strict=True)
+        state_dict = torch.load(model_path, weights_only=True)
+        model.load_state_dict(state_dict, strict=True)
         
         stats_path = os.path.join(save_dir, f"stats_gen_{generation}.json")
         with open(stats_path, 'r') as f:
@@ -74,16 +75,16 @@ def load_latest_model(input_size: int, save_dir: str = "checkpoints") -> Tuple[n
         print(f"Loaded model from generation {generation}")
         print(f"Loaded statistics: Total games: {stats['total_games']}, Total wins: {stats['total_wins']}")
         return model, generation, stats
-    
     except (FileNotFoundError, ValueError) as e:
         print(f"Error loading model: {e}")
-        return Network(input_size), 0, {"total_games": 0, "total_wins": 0}
+        return MinesweeperNet(input_size), 0, {"total_games": 0, "total_wins": 0}
 
 def save_model_checkpoint(model: nn.Module, generation: int, stats: Dict, save_dir: str = "checkpoints"):
     os.makedirs(save_dir, exist_ok=True)
     
     model_path = os.path.join(save_dir, f"model_gen_{generation}.pt")
     torch.save(model.state_dict(), model_path)
+    
     stats_path = os.path.join(save_dir, f"stats_gen_{generation}.json")
     with open(stats_path, 'w') as f:
         json.dump(stats, f, indent=4)
@@ -111,8 +112,8 @@ def main():
     num_generations = 10
     games_per_generation = 5
     
-    game = Game(rows, cols, num_mines)
-    ui = Interface(game, initial_generation=start_generation + 1, initial_winrate=initial_winrate)
+    game = MinesweeperGame(rows, cols, num_mines)
+    ui = MinesweeperUI(game, initial_generation=start_generation + 1, initial_winrate=initial_winrate)
     
     try:
         for generation in range(start_generation, start_generation + num_generations):
@@ -126,7 +127,7 @@ def main():
             for game_num in range(games_per_generation):
                 print(f"Playing game {game_num + 1}/{games_per_generation}")
                 game.reset_game()
-                solver = Solution(game, model)
+                solver = MinesweeperSolver(game, model)
                 game_states = []
                 game_labels = []
                 
@@ -206,7 +207,7 @@ def main():
                 break
                 
             game.reset_game()
-            solver = Solution(game, model)
+            solver = MinesweeperSolver(game, model)
             
             while not game.game_over:
                 row, col = solver.make_move()

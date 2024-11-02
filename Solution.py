@@ -53,44 +53,54 @@ class Solution:
                     if mine_count == self.game.board[i][j]:
                         safe_moves.update((x, y) for x, y in unknown_cells 
                                         if (x, y) not in mine_locations)
-        
         return safe_moves
     
-    def make_move(self) -> Tuple[int, int]:
+    def make_move(self) -> Tuple[Tuple[int, int], bool]:
         if self.game.first_move:
             if random.random() < 0.8:
-                return (self.game.rows // 2, self.game.cols // 2)
+                return (self.game.rows // 2, self.game.cols // 2), False
             else:
                 corners = [(0, 0), (0, self.game.cols-1), 
                           (self.game.rows-1, 0), (self.game.rows-1, self.game.cols-1)]
-                return random.choice(corners)
+                return random.choice(corners), False
         
         safe_moves = self.find_safe_moves_basic()
         if safe_moves:
-            return random.choice(list(safe_moves))
+            return random.choice(list(safe_moves)), False
         
         if self.model is not None:
             state = self.get_game_state_features()
             state_tensor = torch.FloatTensor(state).unsqueeze(0)
             
             with torch.no_grad():
-                predictions = self.model(state_tensor)
-                predictions = predictions.squeeze(0).numpy()
-                predictions = predictions.reshape(self.game.rows, self.game.cols)
+                reveal_pred, flag_pred = self.model(state_tensor)
+                reveal_pred = reveal_pred.squeeze(0).numpy()
+                flag_pred = flag_pred.squeeze(0).numpy()
+                
+                reveal_matrix = reveal_pred.reshape(self.game.rows, self.game.cols)
+                flag_matrix = flag_pred.reshape(self.game.rows, self.game.cols)
                 
                 for i in range(self.game.rows):
                     for j in range(self.game.cols):
                         if self.game.revealed[i][j] or self.game.flagged[i][j]:
-                            predictions[i][j] = -1
+                            reveal_matrix[i][j] = -1
+                            flag_matrix[i][j] = -1
                 
-                max_prob = predictions.max()
-                if max_prob > -1:
-                    max_indices = np.where(predictions == max_prob)
+                max_reveal = reveal_matrix.max()
+                max_flag = flag_matrix.max()
+                
+                if max_flag > max_reveal and max_flag > 0.8:
+                    max_indices = np.where(flag_matrix == max_flag)
                     row = max_indices[0][0]
                     col = max_indices[1][0]
-                    return (row, col)
+                    return (row, col), True
+                elif max_reveal > -1:
+                    max_indices = np.where(reveal_matrix == max_reveal)
+                    row = max_indices[0][0]
+                    col = max_indices[1][0]
+                    return (row, col), False
         
         unrevealed = [(i, j) for i in range(self.game.rows) 
                      for j in range(self.game.cols)
                      if not self.game.revealed[i][j] and not self.game.flagged[i][j]]
-        return random.choice(unrevealed) if unrevealed else (0, 0)
+        return random.choice(unrevealed) if unrevealed else (0, 0), False

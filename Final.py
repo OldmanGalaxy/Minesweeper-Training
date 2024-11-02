@@ -7,38 +7,53 @@ from typing import List, Tuple, Dict
 import time
 import os
 import json
+from Network import *
 from Game import *
 from Interface import *
 from Solution import *
-from Network import *
 
 def train_generation(model: nn.Module, games_data: List[Dict], rows: int, cols: int):
     if not games_data:
         return
     
     states = []
-    labels = []
+    reveal_labels = []
+    flag_labels = []
     
     for game_data in games_data:
-        states.extend(game_data['states'])
-        labels.extend(game_data['labels'])
+        states.extend([np.array(state, dtype=np.float32) for state in game_data['states']])
+        for label in game_data['labels']:
+            input_size = rows * cols
+            reveal_labels.append(np.array(label[:input_size], dtype=np.float32))
+            flag_labels.append(np.array(label[input_size:], dtype=np.float32))
     
-    states_tensor = torch.FloatTensor(states)
-    labels_tensor = torch.FloatTensor(labels)
+    states_tensor = torch.from_numpy(np.stack(states))
+    reveal_labels_tensor = torch.from_numpy(np.stack(reveal_labels))
+    flag_labels_tensor = torch.from_numpy(np.stack(flag_labels))
     
-    dataset = torch.utils.data.TensorDataset(states_tensor, labels_tensor)
+    dataset = torch.utils.data.TensorDataset(
+        states_tensor, 
+        reveal_labels_tensor,
+        flag_labels_tensor
+    )
     dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
     
     optimizer = optim.Adam(model.parameters())
     criterion = nn.BCELoss()
     
+    model.train()
     for epoch in range(3):
-        for batch_states, batch_labels in dataloader:
+        for batch_states, batch_reveal_labels, batch_flag_labels in dataloader:
             optimizer.zero_grad()
-            outputs = model(batch_states)
-            loss = criterion(outputs, batch_labels)
-            loss.backward()
+            reveal_pred, flag_pred = model(batch_states)
+            
+            reveal_loss = criterion(reveal_pred, batch_reveal_labels)
+            flag_loss = criterion(flag_pred, batch_flag_labels)
+            
+            total_loss = reveal_loss + flag_loss
+            total_loss.backward()
             optimizer.step()
+    model.eval()
 
 def load_latest_model(input_size: int, save_dir: str = "checkpoints") -> Tuple[nn.Module, int, Dict]:
     if not os.path.exists(save_dir):
@@ -50,7 +65,7 @@ def load_latest_model(input_size: int, save_dir: str = "checkpoints") -> Tuple[n
         
         model = Network(input_size)
         model_path = os.path.join(save_dir, f"model_gen_{generation}.pt")
-        model.load_state_dict(torch.load(model_path))
+        model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')), strict=True)
         
         stats_path = os.path.join(save_dir, f"stats_gen_{generation}.json")
         with open(stats_path, 'r') as f:
@@ -59,15 +74,16 @@ def load_latest_model(input_size: int, save_dir: str = "checkpoints") -> Tuple[n
         print(f"Loaded model from generation {generation}")
         print(f"Loaded statistics: Total games: {stats['total_games']}, Total wins: {stats['total_wins']}")
         return model, generation, stats
+    
     except (FileNotFoundError, ValueError) as e:
         print(f"Error loading model: {e}")
         return Network(input_size), 0, {"total_games": 0, "total_wins": 0}
 
 def save_model_checkpoint(model: nn.Module, generation: int, stats: Dict, save_dir: str = "checkpoints"):
     os.makedirs(save_dir, exist_ok=True)
+    
     model_path = os.path.join(save_dir, f"model_gen_{generation}.pt")
     torch.save(model.state_dict(), model_path)
-    
     stats_path = os.path.join(save_dir, f"stats_gen_{generation}.json")
     with open(stats_path, 'w') as f:
         json.dump(stats, f, indent=4)
@@ -116,15 +132,21 @@ def main():
                 
                 while not game.game_over:
                     state = solver.get_game_state_features()
-                    row, col = solver.make_move()
-                    success = game.reveal(row, col)
+                    position, should_flag = solver.make_move()
+                    row, col = position
                     
-                    label = np.zeros(input_size)
-                    label[row * cols + col] = 1 if success else 0
+                    if should_flag:
+                        game.flagged[row][col] = True
+                        flag_label = np.zeros(input_size * 2)
+                        flag_label[input_size + row * cols + col] = 1
+                        game_labels.append(flag_label)
+                    else:
+                        success = game.reveal(row, col)
+                        reveal_label = np.zeros(input_size * 2)
+                        reveal_label[row * cols + col] = 1 if success else 0
+                        game_labels.append(reveal_label)
                     
                     game_states.append(state)
-                    game_labels.append(label)
-                    
                     ui.update_display()
                     time.sleep(0.1)
                 
@@ -206,6 +228,18 @@ def main():
     finally:
         print("\nClosing game...")
         ui.root.destroy()
+    
+    while not game.game_over:
+        position, should_flag = solver.make_move()
+        row, col = position
+        
+        if should_flag:
+            game.flagged[row][col] = True
+        else:
+            success = game.reveal(row, col)
+        
+        ui.update_display()
+        time.sleep(0.2)
 
 if __name__ == "__main__":
     main()

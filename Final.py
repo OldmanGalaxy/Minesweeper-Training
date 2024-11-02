@@ -57,13 +57,13 @@ def train_generation(model: nn.Module, games_data: List[Dict], rows: int, cols: 
 
 def load_latest_model(input_size: int, save_dir: str = "checkpoints") -> Tuple[nn.Module, int, Dict]:
     if not os.path.exists(save_dir):
-        return MinesweeperNet(input_size), 0, {"total_games": 0, "total_wins": 0}
+        return Network(input_size), 0, {"total_games": 0, "total_wins": 0}
     
     try:
         with open(os.path.join(save_dir, "latest_generation.txt"), 'r') as f:
             generation = int(f.read().strip())
         
-        model = MinesweeperNet(input_size)
+        model = Network(input_size)
         model_path = os.path.join(save_dir, f"model_gen_{generation}.pt")
         state_dict = torch.load(model_path, weights_only=True)
         model.load_state_dict(state_dict, strict=True)
@@ -77,7 +77,7 @@ def load_latest_model(input_size: int, save_dir: str = "checkpoints") -> Tuple[n
         return model, generation, stats
     except (FileNotFoundError, ValueError) as e:
         print(f"Error loading model: {e}")
-        return MinesweeperNet(input_size), 0, {"total_games": 0, "total_wins": 0}
+        return Network(input_size), 0, {"total_games": 0, "total_wins": 0}
 
 def save_model_checkpoint(model: nn.Module, generation: int, stats: Dict, save_dir: str = "checkpoints"):
     os.makedirs(save_dir, exist_ok=True)
@@ -112,8 +112,8 @@ def main():
     num_generations = 10
     games_per_generation = 5
     
-    game = MinesweeperGame(rows, cols, num_mines)
-    ui = MinesweeperUI(game, initial_generation=start_generation + 1, initial_winrate=initial_winrate)
+    game = Game(rows, cols, num_mines)
+    ui = Interface(game, initial_generation=start_generation + 1, initial_winrate=initial_winrate)
     
     try:
         for generation in range(start_generation, start_generation + num_generations):
@@ -127,7 +127,7 @@ def main():
             for game_num in range(games_per_generation):
                 print(f"Playing game {game_num + 1}/{games_per_generation}")
                 game.reset_game()
-                solver = MinesweeperSolver(game, model)
+                solver = Solution(game, model)
                 game_states = []
                 game_labels = []
                 
@@ -207,7 +207,7 @@ def main():
                 break
                 
             game.reset_game()
-            solver = MinesweeperSolver(game, model)
+            solver = Solution(game, model)
             
             while not game.game_over:
                 row, col = solver.make_move()

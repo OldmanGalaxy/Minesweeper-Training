@@ -29,6 +29,17 @@ class Solution:
         features = np.concatenate([basic_state.flatten(), adjacent_unknown.flatten()])
         return features
     
+    def get_border_cells(self) -> Set[Tuple[int, int]]:
+        border_cells = set()
+        for i in range(self.game.rows):
+            for j in range(self.game.cols):
+                if not self.game.revealed[i][j] and not self.game.flagged[i][j]:
+                    for adj_i, adj_j in self.game.get_adjacent_cells(i, j):
+                        if self.game.revealed[adj_i][adj_j]:
+                            border_cells.add((i, j))
+                            break
+        return border_cells
+    
     def find_safe_moves_basic(self) -> Set[Tuple[int, int]]:
         safe_moves = set()
         mine_locations = set()
@@ -82,9 +93,13 @@ class Solution:
                 
                 reveal_matrix = reveal_pred.reshape(self.game.rows, self.game.cols)
                 flag_matrix = flag_pred.reshape(self.game.rows, self.game.cols)
+                border_cells = self.get_border_cells()
                 
                 for i in range(self.game.rows):
                     for j in range(self.game.cols):
+                        if (i, j) not in border_cells:
+                            reveal_matrix[i][j] = -1
+                            flag_matrix[i][j] = -1
                         if self.game.revealed[i][j] or self.game.flagged[i][j]:
                             reveal_matrix[i][j] = -1
                             flag_matrix[i][j] = -1
@@ -108,6 +123,10 @@ class Solution:
                     row = max_indices[0][0]
                     col = max_indices[1][0]
                     return (row, col), False
+        
+        border_cells = self.get_border_cells()
+        if border_cells:
+            return random.choice(list(border_cells)), False
         
         unrevealed = [(i, j) for i in range(self.game.rows) 
                      for j in range(self.game.cols)

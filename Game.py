@@ -16,6 +16,38 @@ class Game:
         self.game_over = False
         self.won = False
         self.first_move = True
+        self.flags_placed = 0
+
+    def toggle_flag(self, row: int, col: int) -> bool:
+        if self.revealed[row][col]:
+            return False
+            
+        if not self.flagged[row][col] and self.flags_placed < self.num_mines:
+            self.flagged[row][col] = True
+            self.flags_placed += 1
+            return True
+        elif self.flagged[row][col]:
+            self.flagged[row][col] = False
+            self.flags_placed -= 1
+            return False
+        return False
+    
+    def check_win(self):
+        if self.flags_placed != self.num_mines:
+            return False
+            
+        for i in range(self.rows):
+            for j in range(self.cols):
+                if self.flagged[i][j] and self.board[i][j] != -1:
+                    return False
+                if not self.flagged[i][j] and self.board[i][j] == -1:
+                    return False
+                if not self.revealed[i][j] and self.board[i][j] != -1 and not self.flagged[i][j]:
+                    return False
+                    
+        self.won = True
+        self.game_over = True
+        return True
         
     def initialize_board(self, first_row: int, first_col: int):
         safe_cells = [(i, j) for i in range(max(0, first_row-1), min(self.rows, first_row+2))
@@ -70,5 +102,4 @@ class Game:
         if np.sum(~self.revealed) == self.num_mines:
             self.won = True
             self.game_over = True
-        
         return True

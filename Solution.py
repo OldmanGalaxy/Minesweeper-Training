@@ -41,6 +41,9 @@ class Solution:
                                    if not self.game.revealed[x][y]]
                     if len(unknown_cells) == self.game.board[i][j]:
                         mine_locations.update(unknown_cells)
+                        for x, y in unknown_cells:
+                            if not self.game.flagged[x][y] and self.game.flags_placed < self.game.num_mines:
+                                self.game.toggle_flag(x, y)
         
         for i in range(self.game.rows):
             for j in range(self.game.cols):
@@ -89,7 +92,13 @@ class Solution:
                 max_reveal = reveal_matrix.max()
                 max_flag = flag_matrix.max()
                 
-                if max_flag > max_reveal and max_flag > 0.8:
+                if max_flag > 0.9 and self.game.flags_placed < self.game.num_mines:
+                    high_confidence_flags = np.where(flag_matrix > 0.9)
+                    for i, j in zip(high_confidence_flags[0], high_confidence_flags[1]):
+                        if not self.game.revealed[i][j] and not self.game.flagged[i][j]:
+                            self.game.toggle_flag(i, j)
+                
+                if max_flag > max_reveal and max_flag > 0.7 and self.game.flags_placed < self.game.num_mines:
                     max_indices = np.where(flag_matrix == max_flag)
                     row = max_indices[0][0]
                     col = max_indices[1][0]

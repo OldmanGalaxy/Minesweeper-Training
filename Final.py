@@ -45,12 +45,12 @@ def train_generation(model: nn.Module, games_data: List[Dict], rows: int, cols: 
     for epoch in range(3):
         for batch_states, batch_reveal_labels, batch_flag_labels in dataloader:
             optimizer.zero_grad()
-            
             reveal_pred, flag_pred = model(batch_states)
+            
             reveal_loss = criterion(reveal_pred, batch_reveal_labels)
             flag_loss = criterion(flag_pred, batch_flag_labels)
-            
             total_loss = reveal_loss + flag_loss
+            
             total_loss.backward()
             optimizer.step()
     model.eval()
@@ -137,15 +137,17 @@ def main():
                     row, col = position
                     
                     if should_flag:
-                        game.flagged[row][col] = True
+                        flag_placed = game.toggle_flag(row, col)
                         flag_label = np.zeros(input_size * 2)
-                        flag_label[input_size + row * cols + col] = 1
+                        flag_label[input_size + row * cols + col] = 1 if flag_placed else 0
                         game_labels.append(flag_label)
+                        game.check_win()
                     else:
-                        success = game.reveal(row, col)
-                        reveal_label = np.zeros(input_size * 2)
-                        reveal_label[row * cols + col] = 1 if success else 0
-                        game_labels.append(reveal_label)
+                        if not game.flagged[row][col]:
+                            success = game.reveal(row, col)
+                            reveal_label = np.zeros(input_size * 2)
+                            reveal_label[row * cols + col] = 1 if success else 0
+                            game_labels.append(reveal_label)
                     
                     game_states.append(state)
                     ui.update_display()

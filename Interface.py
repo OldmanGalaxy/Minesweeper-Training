@@ -47,11 +47,10 @@ class Interface:
                               height=1,
                               font=('Arial', 10, 'bold'),
                               relief=tk.RAISED,
-                              bg='#E0E0E0')
+                              bg='#8C8C8C')
                 btn.grid(row=i, column=j, padx=1, pady=1)
                 row.append(btn)
             self.buttons.append(row)
-        
         self.update_display()
     
     def update_generation(self, generation: int):
@@ -78,9 +77,9 @@ class Interface:
                     else:
                         button.config(text=" ", bg='#FFFFFF')
                 elif self.game.flagged[i][j]:
-                    button.config(text="🚩", bg='#E0E0E0')
+                    button.config(text="🚩", bg='#8C8C8C')
                 else:
-                    button.config(text="", bg='#E0E0E0')
+                    button.config(text="", bg='#8C8C8C')
                 
                 if self.game.game_over:
                     if self.game.won:

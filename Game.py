@@ -74,12 +74,13 @@ class Game:
         return cells
     
     def toggle_flag(self, row: int, col: int) -> bool:
-        if self.revealed[row][col]:
+        if self.revealed[row][col] or self.game_over:
             return False
             
         if not self.flagged[row][col] and self.flags_placed < self.num_mines:
             self.flagged[row][col] = True
             self.flags_placed += 1
+            self.check_win()
             return True
         elif self.flagged[row][col]:
             self.flagged[row][col] = False
@@ -87,7 +88,10 @@ class Game:
             return False
         return False
     
-    def check_win(self):
+    def check_win(self) -> bool:
+        if self.game_over:
+            return False
+            
         if self.flags_placed != self.num_mines:
             return False
             
@@ -102,11 +106,10 @@ class Game:
                     
         self.won = True
         self.game_over = True
-        self.reset_game()
         return True
     
     def reveal(self, row: int, col: int) -> bool:
-        if self.revealed[row][col] or self.flagged[row][col]:
+        if self.revealed[row][col] or self.flagged[row][col] or self.game_over:
             return True
         
         if self.first_move:
@@ -117,7 +120,6 @@ class Game:
         
         if self.board[row][col] == -1:
             self.game_over = True
-            self.reset_game()
             return False
         
         if self.board[row][col] == 0:
@@ -125,8 +127,13 @@ class Game:
                 if not self.revealed[i][j]:
                     self.reveal(i, j)
         
-        if np.sum(~self.revealed) == self.num_mines:
+        unrevealed_count = np.sum(~self.revealed)
+        if unrevealed_count == self.num_mines:
+            for i in range(self.rows):
+                for j in range(self.cols):
+                    if not self.revealed[i][j]:
+                        self.flagged[i][j] = True
+            self.flags_placed = self.num_mines
             self.won = True
             self.game_over = True
-            self.reset_game()
         return True

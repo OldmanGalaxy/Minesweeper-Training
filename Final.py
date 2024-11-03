@@ -12,8 +12,6 @@ from Game import *
 from Interface import *
 from Solution import *
 
-#add: better decisions
-
 def train_generation(model: nn.Module, games_data: List[Dict], rows: int, cols: int):
     if not games_data:
         return

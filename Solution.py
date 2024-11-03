@@ -126,6 +126,10 @@ class Solution:
         return unexplored
     
     def make_move(self) -> Tuple[Tuple[int, int], bool]:
+        if self.game.game_over:
+            self.game.reset_game()
+            return self.get_safe_opening_move(), False
+            
         if self.game.first_move:
             return self.get_safe_opening_move(), False
             

@@ -23,39 +23,20 @@ class Game:
                      for j in range(max(0, first_col-1), min(self.cols, first_col+2))}
         
         all_cells = {(i, j) for i in range(self.rows) for j in range(self.cols)} - safe_cells
-        available_cells = list(all_cells)
-        mine_positions = []
-        remaining_cells = list(available_cells)
+        mine_positions = random.sample(list(all_cells), self.num_mines)
         
-        while len(mine_positions) < self.num_mines and remaining_cells:
-            candidate = random.choice(remaining_cells)
-            remaining_cells.remove(candidate)
-            
-            self.board[candidate[0]][candidate[1]] = -1
-            risky_pattern = False
-            
-            for i in range(max(0, candidate[0]-2), min(self.rows, candidate[0]+3)):
-                for j in range(max(0, candidate[1]-2), min(self.cols, candidate[1]+3)):
-                    if (i,j) not in safe_cells:
-                        adjacent_count = self.count_adjacent_mines(i, j)
-                        neighbors = self.get_adjacent_cells(i, j)
-                        unassigned = sum(1 for x, y in neighbors if (x,y) not in safe_cells and self.board[x][y] != -1)
-                        if unassigned > 0 and adjacent_count / unassigned >= 0.5:
-                            risky_pattern = True
-                            break
-                if risky_pattern:
-                    break
-            
-            if risky_pattern:
-                self.board[candidate[0]][candidate[1]] = 0
-                continue
-                
-            mine_positions.append(candidate)
+        for row, col in mine_positions:
+            self.board[row][col] = -1
         
         for i in range(self.rows):
             for j in range(self.cols):
                 if self.board[i][j] != -1:
-                    self.board[i][j] = self.count_adjacent_mines(i, j)
+                    mine_count = 0
+                    for ni in range(max(0, i-1), min(self.rows, i+2)):
+                        for nj in range(max(0, j-1), min(self.cols, j+2)):
+                            if (ni, nj) != (i, j) and self.board[ni][nj] == -1:
+                                mine_count += 1
+                    self.board[i][j] = mine_count
     
     def count_adjacent_mines(self, row: int, col: int) -> int:
         count = 0
@@ -101,8 +82,6 @@ class Game:
                     return False
                 if not self.flagged[i][j] and self.board[i][j] == -1:
                     return False
-                if not self.revealed[i][j] and self.board[i][j] != -1 and not self.flagged[i][j]:
-                    return False
                     
         self.won = True
         self.game_over = True
@@ -127,8 +106,7 @@ class Game:
                 if not self.revealed[i][j]:
                     self.reveal(i, j)
         
-        unrevealed_count = np.sum(~self.revealed)
-        if unrevealed_count == self.num_mines:
+        if np.sum(~self.revealed) == self.num_mines:
             for i in range(self.rows):
                 for j in range(self.cols):
                     if not self.revealed[i][j]:

@@ -128,24 +128,22 @@ def main():
     
     game = Game(rows, cols, num_mines)
     ui = Interface(game, initial_generation=start_generation + 1, initial_winrate=initial_winrate)
+    solver = Solution(game, model)
     
     try:
         for generation in range(start_generation, start_generation + num_generations):
             games_data = []
             generation_wins = 0
+            game_states = []
+            game_labels = []
             
             print(f"\nGeneration {generation + 1}")
             print(f"Starting generation with: Total games: {total_games}, Total wins: {total_wins}")
             ui.update_generation(generation + 1)
             
-            for game_num in range(games_per_generation):
-                print(f"Playing game {game_num + 1}/{games_per_generation}")
-                game.reset_game()
-                solver = Solution(game, model)
-                game_states = []
-                game_labels = []
-                
-                while not game.game_over:
+            for _ in range(games_per_generation):
+                game_completed = False
+                while not game_completed:
                     state = solver.get_game_state_features()
                     position, should_flag = solver.make_move()
                     row, col = position
@@ -155,7 +153,6 @@ def main():
                         flag_label = np.zeros(input_size * 2)
                         flag_label[input_size + row * cols + col] = 1 if flag_placed else 0
                         game_labels.append(flag_label)
-                        game.check_win()
                     else:
                         if not game.flagged[row][col]:
                             success = game.reveal(row, col)
@@ -166,23 +163,28 @@ def main():
                     game_states.append(state)
                     ui.update_display()
                     time.sleep(0.1)
-                
-                if game.won:
-                    generation_wins += 1
-                    total_wins += 1
-                    print("Game won!")
-                else:
-                    print("Game lost!")
-                
-                total_games += 1
-                current_winrate = (total_wins / total_games) * 100
-                ui.update_winrate(current_winrate)
-                
-                if game_states:
-                    games_data.append({
-                        'states': game_states,
-                        'labels': game_labels
-                    })
+                    
+                    if game.game_over:
+                        game_completed = True
+                        if game.won:
+                            generation_wins += 1
+                            total_wins += 1
+                            print("Game won!")
+                        else:
+                            print("Game lost!")
+                        
+                        total_games += 1
+                        current_winrate = (total_wins / total_games) * 100
+                        ui.update_winrate(current_winrate)
+                        
+                        game.reset_game()
+                        solver = Solution(game, model)
+            
+            if game_states:
+                games_data.append({
+                    'states': game_states,
+                    'labels': game_labels
+                })
             
             gen_winrate = (generation_wins / games_per_generation) * 100
             overall_winrate = (total_wins / total_games) * 100
@@ -225,6 +227,7 @@ def main():
                 row, col = position
                 
                 if should_flag:
+                    game.toggle_flag(row, col)
                     game.toggle_flag(row, col)
                     game.check_win()
                 else:

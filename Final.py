@@ -109,7 +109,7 @@ def main():
     initial_winrate = (total_wins / total_games * 100) if total_games > 0 else 0.0
     print(f"Starting with: Total games: {total_games}, Total wins: {total_wins}, Win rate: {initial_winrate:.1f}%")
     
-    num_generations = 10
+    num_generations = 100
     games_per_generation = 5
     
     game = Game(rows, cols, num_mines)
@@ -193,10 +193,10 @@ def main():
             }
             save_model_checkpoint(model, generation + 1, stats)
             
-            if generation < start_generation + num_generations - 1:
-                response = input("\nPress Enter to continue to next generation (or 'q' to quit): ")
-                if response.lower() == 'q':
-                    break
+            # if generation < start_generation + num_generations - 1:
+            #     response = input("\nPress Enter to continue to next generation (or 'q' to quit): ")
+            #     if response.lower() == 'q':
+            #         break
         
         print("\nTraining Complete!")
         print(f"Total Games: {total_games}")

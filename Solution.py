@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import random
-from typing import Tuple, Set
+from typing import Tuple, Set, Dict
 from Game import *
 
 class Solution:
@@ -69,6 +69,28 @@ class Solution:
                                         if (x, y) not in mine_locations)
         return safe_moves
     
+    def calculate_mine_probabilities(self, border_cells: Set[Tuple[int, int]]) -> Dict[Tuple[int, int], float]:
+        probabilities = {}
+        for cell in border_cells:
+            mine_prob = 0
+            adjacent_revealed = []
+            for adj_i, adj_j in self.game.get_adjacent_cells(*cell):
+                if self.game.revealed[adj_i][adj_j]:
+                    adjacent_revealed.append((adj_i, adj_j))
+            
+            if adjacent_revealed:
+                cell_probs = []
+                for adj_i, adj_j in adjacent_revealed:
+                    remaining_mines = self.game.board[adj_i][adj_j]
+                    unknown_neighbors = [(x, y) for x, y in self.game.get_adjacent_cells(adj_i, adj_j)
+                                      if not self.game.revealed[x][y] and not self.game.flagged[x][y]]
+                    if unknown_neighbors:
+                        cell_probs.append(remaining_mines / len(unknown_neighbors))
+                mine_prob = min(cell_probs) if cell_probs else 0
+            
+            probabilities[cell] = mine_prob
+        return probabilities
+    
     def make_move(self) -> Tuple[Tuple[int, int], bool]:
         if self.game.first_move:
             if random.random() < 0.8:
@@ -126,9 +148,16 @@ class Solution:
         
         border_cells = self.get_border_cells()
         if border_cells:
-            return random.choice(list(border_cells)), False
+            probs = self.calculate_mine_probabilities(border_cells)
+            safest_cell = min(probs.items(), key=lambda x: x[1])[0]
+            return safest_cell, False
         
         unrevealed = [(i, j) for i in range(self.game.rows) 
                      for j in range(self.game.cols)
                      if not self.game.revealed[i][j] and not self.game.flagged[i][j]]
-        return random.choice(unrevealed) if unrevealed else (0, 0), False
+                     
+        if len(unrevealed) == self.game.num_mines - self.game.flags_placed:
+            return unrevealed[0], True
+            
+        center_distance = lambda pos: abs(pos[0] - self.game.rows//2) + abs(pos[1] - self.game.cols//2)
+        return min(unrevealed, key=center_distance), False

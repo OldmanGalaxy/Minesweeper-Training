@@ -12,14 +12,14 @@ class Interface:
         self.style.configure('GameButton.TButton', padding=4, width=3, font=('Arial', 10, 'bold'))
         
         self.number_colors = {
-            1: '#0000FF',  
-            2: '#008000',  
-            3: '#FF0000',  
-            4: '#000080',  
-            5: '#800000',  
-            6: '#008080',  
-            7: '#000000',  
-            8: '#808080'   
+            1: '#0000FF',
+            2: '#008000',
+            3: '#FF0000',
+            4: '#000080',
+            5: '#800000',
+            6: '#008080',
+            7: '#000000',
+            8: '#808080'
         }
         
         self.info_frame = ttk.Frame(self.root)
@@ -77,9 +77,12 @@ class Interface:
                     else:
                         button.config(text=" ", bg='#FFFFFF')
                 elif self.game.flagged[i][j]:
-                    button.config(text="🚩", bg='#8C8C8C')
+                    button.config(text="🚩", 
+                                fg='#FF0000',
+                                bg='#8C8C8C')
                 else:
-                    button.config(text="", bg='#8C8C8C')
+                    button.config(text="",
+                                bg='#8C8C8C')
                 
                 if self.game.game_over:
                     if self.game.won:

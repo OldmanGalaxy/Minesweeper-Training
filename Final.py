@@ -12,6 +12,8 @@ from Game import *
 from Interface import *
 from Solution import *
 
+#add: better decisions
+
 def train_generation(model: nn.Module, games_data: List[Dict], rows: int, cols: int):
     if not games_data:
         return
@@ -36,24 +38,38 @@ def train_generation(model: nn.Module, games_data: List[Dict], rows: int, cols: 
         reveal_labels_tensor,
         flag_labels_tensor
     )
-    dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=64, shuffle=True)
     
-    optimizer = optim.Adam(model.parameters())
-    criterion = nn.BCELoss()
+    optimizer = optim.AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
+    reveal_criterion = nn.BCELoss(reduction='none')
+    flag_criterion = nn.BCELoss(reduction='none')
     
     model.train()
-    for epoch in range(3):
+    for epoch in range(5):
+        total_loss = 0
         for batch_states, batch_reveal_labels, batch_flag_labels in dataloader:
             optimizer.zero_grad()
             reveal_pred, flag_pred = model(batch_states)
             
-            reveal_loss = criterion(reveal_pred, batch_reveal_labels)
-            flag_loss = criterion(flag_pred, batch_flag_labels)
-            total_loss = reveal_loss + flag_loss
+            reveal_loss = reveal_criterion(reveal_pred, batch_reveal_labels)
+            flag_loss = flag_criterion(flag_pred, batch_flag_labels)
             
-            total_loss.backward()
+            reveal_mask = (batch_reveal_labels > 0).float()
+            flag_mask = (batch_flag_labels > 0).float()
+            
+            reveal_loss = (reveal_loss * reveal_mask).mean()
+            flag_loss = (flag_loss * flag_mask).mean()
+            
+            loss = reveal_loss + flag_loss
+            loss.backward()
+            
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
+            
+            total_loss += loss.item()
+    
     model.eval()
+    return total_loss
 
 def load_latest_model(input_size: int, save_dir: str = "checkpoints") -> Tuple[nn.Module, int, Dict]:
     if not os.path.exists(save_dir):
@@ -109,8 +125,8 @@ def main():
     initial_winrate = (total_wins / total_games * 100) if total_games > 0 else 0.0
     print(f"Starting with: Total games: {total_games}, Total wins: {total_wins}, Win rate: {initial_winrate:.1f}%")
     
-    num_generations = 1000
-    games_per_generation = 5
+    num_generations = 100
+    games_per_generation = 1
     
     game = Game(rows, cols, num_mines)
     ui = Interface(game, initial_generation=start_generation + 1, initial_winrate=initial_winrate)
@@ -192,11 +208,6 @@ def main():
                 "overall_winrate": overall_winrate
             }
             save_model_checkpoint(model, generation + 1, stats)
-            
-            # if generation < start_generation + num_generations - 1:
-            #     response = input("\nPress Enter to continue to next generation (or 'q' to quit): ")
-            #     if response.lower() == 'q':
-            #         break
         
         print("\nTraining Complete!")
         print(f"Total Games: {total_games}")
@@ -212,8 +223,16 @@ def main():
             solver = Solution(game, model)
             
             while not game.game_over:
-                row, col = solver.make_move()
-                game.reveal(row, col)
+                position, should_flag = solver.make_move()
+                row, col = position
+                
+                if should_flag:
+                    game.toggle_flag(row, col)
+                    game.check_win()
+                else:
+                    if not game.flagged[row][col]:
+                        game.reveal(row, col)
+                
                 ui.update_display()
                 time.sleep(0.2)
             
@@ -231,18 +250,6 @@ def main():
     finally:
         print("\nClosing game...")
         ui.root.destroy()
-    
-    while not game.game_over:
-        position, should_flag = solver.make_move()
-        row, col = position
-        
-        if should_flag:
-            game.flagged[row][col] = True
-        else:
-            success = game.reveal(row, col)
-        
-        ui.update_display()
-        time.sleep(0.2)
 
 if __name__ == "__main__":
     main()
